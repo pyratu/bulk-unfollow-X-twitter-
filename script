@@ -1,0 +1,75 @@
+() => {
+  const SELECTORS = {
+    unfollowBtn: '[data-testid$="-unfollow"]',
+    confirmBtn: '[data-testid="confirmationSheetConfirm"]',
+  };
+
+  const settings = {
+    delayMin: 800,
+    delayMax: 1500,
+    retryLimit: 5,
+  };
+
+  let totalUnfollowed = 0;
+  let retryCount = 0;
+
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  const randomDelay = () =>
+    sleep(settings.delayMin + Math.random() * (settings.delayMax - settings.delayMin));
+
+  const scrollDown = () => window.scrollTo(0, document.body.scrollHeight);
+
+  const getNextUnfollowButton = () =>
+    document.querySelector(SELECTORS.unfollowBtn);
+
+  const getUsernameFromButton = (buttonEl) => {
+    try {
+      const userCell = buttonEl.closest('[data-testid="UserCell"]');
+      const link = userCell?.querySelector('a[href^="/"]');
+      const username = link?.getAttribute('href')?.replace('/', '');
+      return username || 'unknown';
+    } catch {
+      return 'unknown';
+    }
+  };
+
+  const clickUnfollow = async () => {
+    const btn = getNextUnfollowButton();
+    if (!btn) return false;
+
+    const username = getUsernameFromButton(btn);
+    btn.click();
+    await randomDelay();
+
+    const confirm = document.querySelector(SELECTORS.confirmBtn);
+    if (confirm) {
+      confirm.click();
+      totalUnfollowed++;
+      console.log(Unfollowed @${username} (#${totalUnfollowed}));
+    } else {
+      console.warn(Could not confirm unfollow for @${username});
+    }
+
+    await randomDelay();
+    return true;
+  };
+
+  const unfollowAll = async () => {
+    while (retryCount < settings.retryLimit) {
+      const didUnfollow = await clickUnfollow();
+
+      if (!didUnfollow) {
+        retryCount++;
+        console.log(⏳ Nothing found. Retry ${retryCount}/${settings.retryLimit});
+        scrollDown();
+        await sleep(2000);
+      } else {
+        retryCount = 0;
+      }
+    }
+
+    console.log("Done! Total unfollowed:", totalUnfollowed);
+  };
+
+  unfollowAll();
+})();
